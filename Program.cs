@@ -1,65 +1,75 @@
+using System;
+using System.Threading;
+using System.Threading.Tasks;
 using Telegram.Bot;
 using Telegram.Bot.Polling;
 using Telegram.Bot.Types;
 using Telegram.Bot.Types.Enums;
 
-const string BOT_TOKEN = "7968566122:AAEvV_jv6atiQ4E7OX9Jw1FJEI75j_FCxpQ";
-const long OWNER_ID = 1244637894;
-
-var bot = new TelegramBotClient(BOT_TOKEN);
-
-using var cts = new CancellationTokenSource();
-
-var receiverOptions = new ReceiverOptions
+class Program
 {
-    AllowedUpdates = Array.Empty<UpdateType>()
-};
-
-bot.StartReceiving(
-    HandleUpdateAsync,
-    HandleErrorAsync,
-    receiverOptions,
-    cts.Token
-);
-
-Console.WriteLine("✅ Bot started");
-Console.ReadLine();
-
-async Task HandleUpdateAsync(
-    ITelegramBotClient botClient,
-    Update update,
-    CancellationToken ct)
-{
-    // ===== ИЗМЕНЁННЫЕ =====
-    if (update.EditedMessage != null)
+    static async Task Main()
     {
-        var m = update.EditedMessage;
+        var botToken = Environment.GetEnvironmentVariable("BOT_TOKEN");
+        if (string.IsNullOrEmpty(botToken))
+        {
+            Console.WriteLine("BOT_TOKEN is not set");
+            return;
+        }
 
-        string sender =
-            m.From?.Username != null
-                ? $"{m.From.FirstName} (@{m.From.Username})"
-                : m.From?.FirstName ?? "Неизвестно";
+        var bot = new TelegramBotClient(botToken);
 
-        await botClient.SendTextMessageAsync(
-            OWNER_ID,
-            $"✏️ ИЗМЕНЕНО\nОт: {sender}\nТекст: {m.Text ?? m.Caption ?? "—"}",
-            cancellationToken: ct
+        var me = await bot.GetMeAsync();
+        Console.WriteLine($"Bot started: @{me.Username}");
+
+        using var cts = new CancellationTokenSource();
+
+        var receiverOptions = new ReceiverOptions
+        {
+            AllowedUpdates = Array.Empty<UpdateType>()
+        };
+
+        bot.StartReceiving(
+            HandleUpdateAsync,
+            HandleErrorAsync,
+            receiverOptions,
+            cancellationToken: cts.Token
         );
+
+        Console.ReadLine();
+        cts.Cancel();
     }
 
-    // ===== ОБЫЧНЫЕ (чтобы бот знал, что потом удалили) =====
-    if (update.Message != null)
+    static async Task HandleUpdateAsync(
+        ITelegramBotClient bot,
+        Update update,
+        CancellationToken cancellationToken)
     {
-        // НИЧЕГО не шлём
-        // просто факт получения
-    }
-}
+        if (update.Type == UpdateType.EditedMessage)
+        {
+            var msg = update.EditedMessage;
+            if (msg == null) return;
 
-Task HandleErrorAsync(
-    ITelegramBotClient botClient,
-    Exception exception,
-    CancellationToken ct)
-{
-    Console.WriteLine(exception);
-    return Task.CompletedTask;
+            string text =
+                "✏️ ИЗМЕНЁННОЕ СООБЩЕНИЕ\n\n" +
+                $"👤 Chat ID: {msg.Chat.Id}\n" +
+                $"🆔 Message ID: {msg.MessageId}\n" +
+                $"📝 Новый текст:\n{msg.Text}";
+
+            await bot.SendTextMessageAsync(
+                chatId: 1244637894,
+                text: text,
+                cancellationToken: cancellationToken
+            );
+        }
+    }
+
+    static Task HandleErrorAsync(
+        ITelegramBotClient bot,
+        Exception exception,
+        CancellationToken cancellationToken)
+    {
+        Console.WriteLine(exception);
+        return Task.CompletedTask;
+    }
 }
