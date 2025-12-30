@@ -3,7 +3,7 @@ using Telegram.Bot.Polling;
 using Telegram.Bot.Types;
 using Telegram.Bot.Types.Enums;
 
-const string BOT_TOKEN = "PASTE_BOT_TOKEN";
+const string BOT_TOKEN = "7968566122:AAEvV_jv6atiQ4E7OX9Jw1FJEI75j_FCxpQ";
 const long OWNER_ID = 1244637894;
 
 var bot = new TelegramBotClient(BOT_TOKEN);
