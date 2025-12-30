@@ -41,7 +41,6 @@ namespace ConsoleApp2
 
         static async Task Main()
         {
-            // ЗАПУСКАЕМ "ФЕЙКОВЫЙ" ВЕБ-СЕРВЕР ДЛЯ RENDER
             StartFakeServer();
 
             var token = Environment.GetEnvironmentVariable("BOT_TOKEN");
@@ -59,28 +58,30 @@ namespace ConsoleApp2
             using var cts = new CancellationTokenSource();
             await bot.ReceiveAsync(OnUpdate, OnError, new ReceiverOptions(), cts.Token);
             
-            Console.WriteLine("Бот запущен и фейк-сервер работает!");
+            Console.WriteLine("Бот запущен!");
             await Task.Delay(-1);
         }
 
-        // Эта штука заставит Render думать, что мы - сайт
         static void StartFakeServer()
         {
-            var port = Environment.GetEnvironmentVariable("PORT") ?? "8080";
-            var listener = new HttpListener();
-            listener.Prefixes.Add($"http://*:{port}/");
-            listener.Start();
-            Task.Run(() => {
-                while (true) {
-                    var context = listener.GetContext();
-                    var response = context.Response;
-                    string res = "Bot is alive";
-                    byte[] buffer = Encoding.UTF8.GetBytes(res);
-                    response.ContentLength64 = buffer.Length;
-                    response.OutputStream.Write(buffer, 0, buffer.Length);
-                    response.OutputStream.Close();
-                }
-            });
+            try {
+                var port = Environment.GetEnvironmentVariable("PORT") ?? "8080";
+                var listener = new HttpListener();
+                listener.Prefixes.Add($"http://*:{port}/");
+                listener.Start();
+                Task.Run(() => {
+                    while (true) {
+                        try {
+                            var context = listener.GetContext();
+                            var response = context.Response;
+                            byte[] buffer = Encoding.UTF8.GetBytes("Bot is alive");
+                            response.ContentLength64 = buffer.Length;
+                            response.OutputStream.Write(buffer, 0, buffer.Length);
+                            response.OutputStream.Close();
+                        } catch { }
+                    }
+                });
+            } catch { }
         }
 
         static async Task OnUpdate(ITelegramBotClient client, Update update, CancellationToken ct)
@@ -105,10 +106,10 @@ namespace ConsoleApp2
                         if (!string.IsNullOrEmpty(old.FileUrl)) {
                             text += $"\n\n📂 <a href=\"{old.FileUrl}\">Файл</a>";
                             if (old.FileUrl.EndsWith(".jpg"))
-                                await client.SendPhotoAsync(_ownerId, InputFile.FromUri(old.FileUrl), caption: text, parseMode: ParseMode.Html, cancellationToken: ct);
+                                await client.SendPhotoAsync(chatId: _ownerId, photo: InputFile.FromUri(old.FileUrl), caption: text, parseMode: ParseMode.Html, cancellationToken: ct);
                             else
-                                await client.SendTextMessageAsync(_ownerId, text, ParseMode.Html, cancellationToken: ct);
-                        } else await client.SendTextMessageAsync(_ownerId, text, ParseMode.Html, cancellationToken: ct);
+                                await client.SendTextMessageAsync(chatId: _ownerId, text: text, parseMode: ParseMode.Html, cancellationToken: ct);
+                        } else await client.SendTextMessageAsync(chatId: _ownerId, text: text, parseMode: ParseMode.Html, cancellationToken: ct);
                     }
                 }
             } catch { }
@@ -124,7 +125,7 @@ namespace ConsoleApp2
                 using var ms = new MemoryStream();
                 await bot.DownloadFileAsync(file.FilePath, ms, ct);
                 ms.Position = 0;
-                string name = Guid.NewGuid() + (msg.Photo != null ? ".jpg" : ".bin");
+                string name = Guid.NewGuid() + (msg.Photo != null ? ".jpg" : (msg.Video != null ? ".mp4" : ".bin"));
                 await _s3.PutObjectAsync(new PutObjectRequest { BucketName = _bucket, Key = name, InputStream = ms, DisablePayloadSigning = true });
                 return $"{_pubUrl}/{name}";
             } catch { return ""; }
