@@ -80,8 +80,8 @@ namespace ConsoleApp2
                             if (old.FileUrl.EndsWith(".jpg"))
                                 await client.SendPhotoAsync(_ownerId, InputFile.FromUri(old.FileUrl), caption: text, parseMode: ParseMode.Html, cancellationToken: ct);
                             else
-                                await client.SendTextMessageAsync(_ownerId, text, ParseMode.Html, cancellationToken: ct);
-                        } else await client.SendTextMessageAsync(_ownerId, text, ParseMode.Html, cancellationToken: ct);
+                                await client.SendTextMessageAsync(_ownerId, text, parseMode: ParseMode.Html, cancellationToken: ct);
+                        } else await client.SendTextMessageAsync(_ownerId, text, parseMode: ParseMode.Html, cancellationToken: ct);
                     }
                 }
             } catch { }
