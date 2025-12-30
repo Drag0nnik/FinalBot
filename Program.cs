@@ -1,6 +1,8 @@
 using System;
 using System.IO;
 using System.Linq;
+using System.Net;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using Telegram.Bot;
@@ -39,6 +41,9 @@ namespace ConsoleApp2
 
         static async Task Main()
         {
+            // ЗАПУСКАЕМ "ФЕЙКОВЫЙ" ВЕБ-СЕРВЕР ДЛЯ RENDER
+            StartFakeServer();
+
             var token = Environment.GetEnvironmentVariable("BOT_TOKEN");
             long.TryParse(Environment.GetEnvironmentVariable("OWNER_ID"), out _ownerId);
             
@@ -53,7 +58,29 @@ namespace ConsoleApp2
             bot = new TelegramBotClient(token);
             using var cts = new CancellationTokenSource();
             await bot.ReceiveAsync(OnUpdate, OnError, new ReceiverOptions(), cts.Token);
+            
+            Console.WriteLine("Бот запущен и фейк-сервер работает!");
             await Task.Delay(-1);
+        }
+
+        // Эта штука заставит Render думать, что мы - сайт
+        static void StartFakeServer()
+        {
+            var port = Environment.GetEnvironmentVariable("PORT") ?? "8080";
+            var listener = new HttpListener();
+            listener.Prefixes.Add($"http://*:{port}/");
+            listener.Start();
+            Task.Run(() => {
+                while (true) {
+                    var context = listener.GetContext();
+                    var response = context.Response;
+                    string res = "Bot is alive";
+                    byte[] buffer = Encoding.UTF8.GetBytes(res);
+                    response.ContentLength64 = buffer.Length;
+                    response.OutputStream.Write(buffer, 0, buffer.Length);
+                    response.OutputStream.Close();
+                }
+            });
         }
 
         static async Task OnUpdate(ITelegramBotClient client, Update update, CancellationToken ct)
@@ -80,8 +107,8 @@ namespace ConsoleApp2
                             if (old.FileUrl.EndsWith(".jpg"))
                                 await client.SendPhotoAsync(_ownerId, InputFile.FromUri(old.FileUrl), caption: text, parseMode: ParseMode.Html, cancellationToken: ct);
                             else
-                                await client.SendTextMessageAsync(_ownerId, text, parseMode: ParseMode.Html, cancellationToken: ct);
-                        } else await client.SendTextMessageAsync(_ownerId, text, parseMode: ParseMode.Html, cancellationToken: ct);
+                                await client.SendTextMessageAsync(_ownerId, text, ParseMode.Html, cancellationToken: ct);
+                        } else await client.SendTextMessageAsync(_ownerId, text, ParseMode.Html, cancellationToken: ct);
                     }
                 }
             } catch { }
